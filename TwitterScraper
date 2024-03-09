@@ -1,0 +1,68 @@
+import requests
+from bs4 import BeautifulSoup
+import re
+import time
+from datetime import datetime, timedelta
+
+def scrape_tweets(profile_url, start_time, end_time, stock_symbol):
+    try:
+        # Format the start and end time strings in the required format
+        start_time_str = start_time.strftime("%Y-%m-%d_%H:%M:%S")
+        end_time_str = end_time.strftime("%Y-%m-%d_%H:%M:%S")
+        
+        # Construct the Twitter Advanced Search URL with time interval parameters
+        search_url = f"{profile_url}/search?q=&src=typd&until={end_time_str}&since={start_time_str}"
+        
+        response = requests.get(search_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        tweets = soup.find_all('div', attrs={'data-testid': 'tweetText'})
+        
+        # Print the text of each tweet
+        for tweet in tweets:
+            tweet_text = tweet.text.strip()
+            if re.search(rf'\${stock_symbol}\b', tweet_text):
+                print(tweet_text)
+        
+        return tweets
+    except Exception as e:
+        print(f"Failed to fetch tweets from {profile_url}. Error: {e}")
+        return []
+
+def count_mentions(tweets, stock_symbol):
+    mentions_count = 0
+    for tweet in tweets:
+        text = tweet.text.strip()
+        if re.search(rf'\${stock_symbol}\b', text):
+            mentions_count += 1
+    return mentions_count
+
+def main():
+    profile_urls = [
+        "https://twitter.com/Mr_Derivatives", "https://twitter.com/warrior_0719",
+        "https://twitter.com/ChartingProdigy", "https://twitter.com/allstarcharts",
+        "https://twitter.com/yuriymatso", "https://twitter.com/TriggerTrades",
+        "https://twitter.com/AdamMancini4", "https://twitter.com/CordovaTrades",
+        "https://twitter.com/Barchart", "https://twitter.com/RoyLMattox"
+    ]
+    
+    stock_symbol = "TSLA"  # Without the "$"
+    interval_minutes = 15  # Time interval for scraping
+    
+    while True:
+        total_mentions = 0
+        start_time = datetime.now() - timedelta(minutes=interval_minutes)
+        end_time = datetime.now()
+        
+        for profile_url in profile_urls:
+            tweets = scrape_tweets(profile_url, start_time, end_time, stock_symbol)
+            mentions_count = count_mentions(tweets, stock_symbol)
+            total_mentions += mentions_count
+        
+        print(f"${stock_symbol} was mentioned {total_mentions} times in the last {interval_minutes} minutes.")
+        
+        # Wait for the specified time interval before running the scraper again
+        time.sleep(interval_minutes * 60)
+
+if __name__ == "__main__":
+    main()
